@@ -5,8 +5,30 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo 'Getting source code from GitHub'
+                echo 'Source code fetched from GitHub'
                 sh 'ls -l'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                    docker build -t my-website:${BUILD_NUMBER} .
+                '''
+            }
+        }
+
+        stage('Deploy Docker Container') {
+            steps {
+                sh '''
+                    docker rm -f my-website-container || true
+
+                    docker run -d \
+                    --restart unless-stopped \
+                    -p 8081:80 \
+                    --name my-website-container \
+                    my-website:${BUILD_NUMBER}
+                '''
             }
         }
 
@@ -23,10 +45,11 @@ pipeline {
         stage('Verify Deployment') {
             steps {
                 sh '''
-                    aws s3 ls \
-                    s3://simple-website-2026/index.html
+                    docker ps
+                    curl -I http://localhost:8081
+                    aws s3 ls s3://simple-website-2026/index.html
                 '''
-                echo 'Deployment completed successfully!'
+                echo 'Docker and S3 deployment completed!'
             }
         }
     }
